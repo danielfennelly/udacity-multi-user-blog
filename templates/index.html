@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<a href="/newpost">New Post</a><br>
+{% for p in posts %}
+<h2>{{p.title}}</h2>
+<p>{{p.text}}</p>
+<hr>
+{% endfor %}
+
+{% endblock %}
