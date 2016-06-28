@@ -3,37 +3,45 @@ import webapp2
 import jinja2
 import string
 import re
+import random
+import hashlib
 
-from google.appengine.ext import db
+from google.appengine.ext import ndb
+
+import validators
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 	autoescape=True)
 
-USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-PASSWORD_RE = re.compile(r"^.{3,20}$")
-EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
+# NB: This is not ideal cryptographic practice.
+def make_salt():
+	return string.join(random.sample(string.ascii_letters, 20),'')
 
-def validate_username(username):
-    if USER_RE.match(username):
-    	return username
-    else:
-    	return None
+def make_pw_hash(name, pw, salt=None):
+    if not salt:
+        salt = make_salt()
+    h = hashlib.sha256(name + pw + salt).hexdigest()
+    return '%s,%s' % (h, salt)
 
-def validate_password(password, verify):
-	if PASSWORD_RE.match(password) and password == verify:
-		return password
-	else:
-		return None
+def unsalt(hash_and_salt):
+	hashed, salt = hash_and_salt.split(',')
+	return hashed
 
-def validate_email(email):
-	if EMAIL_RE.match(email):
-		return email
-	else:
-		return None
+def valid_pw(name, pw, h):
+	salt = h.split(',')[1]
+	return h == make_pw_hash(name, pw, salt)
 
-def validate_email(email):
-	return EMAIL_RE.match(email)
+class BlogPost(ndb.Model):
+	title = ndb.StringProperty(required = True)
+	text = ndb.TextProperty(required = True)
+	created = ndb.DateTimeProperty(auto_now_add = True)
+
+class User(ndb.Model):
+	# Assume username is id in model
+	hashed_password = ndb.StringProperty(required = True)
+	email = ndb.StringProperty(required = False)
+	created = ndb.DateTimeProperty(auto_now_add = True)
 
 class Handler(webapp2.RequestHandler):
 	def write(self, *a, **kw):
@@ -46,23 +54,38 @@ class Handler(webapp2.RequestHandler):
 	def render(self, template, **kw):
 		self.write(self.render_str(template, **kw))
 
-class BlogPost(db.Model):
-	title = db.StringProperty(required = True)
-	text = db.TextProperty(required = True)
-	created = db.DateTimeProperty(auto_now_add = True)
+	def get_user(self):
+		user_id = self.request.cookies.get("user_id")
+		if user_id:
+			print('cookie %s' % user_id)
+			username, user_hash = user_id.split("|") # FRAGILE, DON'T TRUST COOKIE VALUES
+			if username:
+				user = User.get_by_id(username)
+				real_hashed_pw = unsalt(user.hashed_password)
+				if user_hash == real_hashed_pw:
+					return user
+		return None
+
+	def set_user(self, user):
+		header = '%s=%s|%s; Path=/' % ('user_id', user.key.id(), unsalt(user.hashed_password))
+		self.response.headers.add_header('Set-Cookie', str(header))
+
+	def clear_user(self):
+		self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
 
 class MainPage(Handler):
+
     def get(self):
-    	posts = db.GqlQuery("SELECT * FROM BlogPost ORDER BY created DESC")
-    	self.render("index.html", posts = posts)
+    	posts = BlogPost.query().order(-BlogPost.created)
+    	self.render("index.html", posts = posts, user = self.get_user())
 
 class NewPostPage(Handler):
 
-	def render_new_post(self, title="", text="", error=None):
-		self.render("newpost.html", subject = title, content = text, error = error)
+	def render_new_post(self, title= "", text= "", user = None, error = None):
+		self.render("newpost.html", subject = title, content = text, user = user, error = error)
 
 	def get(self):
-		self.render_new_post()
+		self.render_new_post(user = self.get_user())
 
 	def post(self):
 		title = self.request.get("subject")
@@ -72,15 +95,16 @@ class NewPostPage(Handler):
 			post = BlogPost(title = title, text = text)
 			post.put()
 			post_id = post.key().id()
-			self.redirect("/%d" % post_id)
+			self.redirect("/posts/%d" % post_id)
 		else:
-			self.render_new_post(title = title, text=text, error="We need both a title and text")
-		# insert into DB
-		# get object key and redirect to permalink page
+			self.render_new_post(
+				title = title,
+				text=text,
+				user = self.get_user(),
+				error="We need both a title and text")
 
 class PermalinkPage(Handler):
 
-	# TODO: Look up post by id in DB and render
 	def get(self, post_id):
 		post = BlogPost.get_by_id(int(post_id))
 		if post:
@@ -90,8 +114,20 @@ class PermalinkPage(Handler):
 
 class SignupPage(Handler):
 
+	def register_user(self, username, password, email):
+		hashed_password = make_pw_hash(username, password)
+		user = User(
+			id = username,
+			hashed_password = hashed_password,
+			email = email)
+		user.put()
+		return user
+
 	def get(self):
-		self.render("signup.html")
+		if self.get_user():
+			self.redirect("/welcome")
+		else:
+			self.render("signup.html")
 
 	def post(self):
 		username = self.request.get("username")
@@ -99,36 +135,71 @@ class SignupPage(Handler):
 		verify = self.request.get("verify")
 		email = self.request.get("email")
 
-		valid_username = validate_username(username)
-		valid_password = validate_password(password, verify)
-		valid_email = validate_email(email)
+		valid_username = validators.validate_username(username)
+		valid_password = validators.validate_password(password, verify)
+		valid_email = validators.validate_email(email)
 
 		has_valid_email = valid_email or (email == '')
 
-		# This is distinctly not how this problem ought to be solved
-		# sessions should be used instead of passing the username in the query string
-		if valid_username and valid_password and has_valid_email:
-			self.redirect("/welcome?username="+username)
+		existing_user = User.get_by_id(valid_username)
+
+		if existing_user:
+			error = 'A user already exists with that username.'
+			print(error)
+			self.render('signup.html', error = error)
+		elif valid_username and valid_password and has_valid_email:
+			user = self.register_user(valid_username, valid_password, valid_email)
+			self.set_user(user)
+			self.redirect("/welcome")
 		else:
-			self.render("signup.html")
+			# TODO: add error messages
+			print('Invalid form data')
+			self.render('signup.html')
 
 class LoginPage(Handler):
 
 	def get(self):
-		self.render("login.html")
+		user = self.get_user()
+		if user:
+			self.redirect('/welcome')
+		else:
+			self.render("login.html")
 
 	#TODO
 	def post(self):
-		# if successful:
-		# 	self.redirect("/welcome")
-		# else:
-		# 	self.render("login.html")
-		pass
+		username = self.request.get("username")
+		password = self.request.get("password")
+
+		user = User.get_by_id(username)
+
+		if user:
+			if valid_pw(username, password, user.hashed_password):
+				self.set_user(user)	
+				self.redirect('/welcome')
+			else:
+				error = 'Password was incorrect.'
+				print(error)
+				self.render('login.html', error = error)
+		else:
+			error = 'That user does not exist.'
+			print(error)
+			self.render('login.html', error)
 
 class WelcomePage(Handler):
 	def get(self):
-		username = self.request.get("username")
-		self.render("welcome.html", username = username)
+		user = self.get_user()
+		if user:
+			self.render('welcome.html', user = user)
+		else:
+			self.redirect('/login')
+
+class LogoutPage(Handler):
+	def get(self):
+		self.render('logout.html', user = self.get_user())
+
+	def post(self):
+		self.clear_user()
+		self.redirect('/signup')
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
@@ -136,6 +207,7 @@ app = webapp2.WSGIApplication([
     ('/signup', SignupPage),
     ('/login', LoginPage),
     ('/welcome', WelcomePage),
-    (r'/(\d+)', PermalinkPage)
+    ('/logout', LogoutPage),
+    (r'/posts/(\d+)', PermalinkPage)
 ], debug=True)
 

@@ -2,8 +2,8 @@
 
 {% block content %}
 <form method="post" action="/newpost">
-	<input name="subject" value="{{title}}"></input><br>
-	<textarea name="content">{{text}}</textarea><br>
+	<input class="title-input" name="subject" value="{{title}}"></input>
+	<textarea name="content">{{text}}</textarea>
 	<button>Submit</button>
 </form>
 <div class="post-error">{% if error %}{{error}}{% endif %}</div>

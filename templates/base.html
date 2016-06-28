@@ -9,7 +9,16 @@
 	<link rel='stylesheet' href='/css/style.css'>
 </head>
 <body>
-	<a href="/" class="title-link"><h1>A Simple Multi-user Blog</h1></a>
+	<div class="title">
+		<a href="/" class="title-link"><h1>A Simple Multi-user Blog</h1></a>
+	</div>
+	<div class="user-name">
+		{% if user %}
+			<h4>{{user.key.id()}} <a href="/logout">Log Out</a></h4>
+		{% else %}
+			<h4><a href="/signup">Sign Up</a> <a href="/login">Log In</a></h4>
+		{% endif %}
+	</div>
 	{% block content %}
 	{% endblock %}
 </body>

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Signup</h2>
-<form method="post" action="/signup">
+<h2>Login</h2>
+<form method="post" action="/login">
 	<table align="center">
 		<tr>
 			<td class='row-name'>Username</td>
@@ -11,14 +11,6 @@
 		<tr>
 			<td class='row-name'>Password</td>
 			<td><input type="password" name="password">{{password}}</input></td>
-		</tr>
-		<tr>
-			<td class='row-name'>Verify Password</td>
-			<td><input type="password" name="verify">{{verify}}</input></td>
-		</tr>
-		<tr>
-			<td class='row-name'>Email</td>
-			<td><input type="text" name="email">{{email}}</input></td>
 		</tr>
 	</table>
 	<button>Submit</button>
