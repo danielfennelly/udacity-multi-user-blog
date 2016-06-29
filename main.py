@@ -195,7 +195,9 @@ class WelcomePage(Handler):
 
 class LogoutPage(Handler):
 	def get(self):
-		self.render('logout.html', user = self.get_user())
+		self.clear_user()
+		self.redirect('/signup')
+		# self.render('logout.html', user = self.get_user())
 
 	def post(self):
 		self.clear_user()
