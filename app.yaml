@@ -7,6 +7,8 @@ handlers:
   static_dir: css
 - url: /fonts
   static_dir: fonts
+- url: /favicons
+  static_dir: favicons
 - url: /.*
   script: main.app
 
