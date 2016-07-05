@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
-<a href="/newpost">New Post</a><br>
-{% for p in posts %}
-<h2>{{p.title}}</h2>
-<p>{{p.text}}</p>
+{% for blog_post in posts %}
+<div>
+<h2><a class="title-link" href="/posts/{{blog_post.key.id()}}">{{blog_post.title}}</a></h2>
+<h4>Created by {{blog_post.user_id}} on {{blog_post.created.date()}}</h4>
+<p>{{blog_post.text}}</p>
+</div>
+<div class="edit-actions">
+	<form method="get" action="/posts/{{blog_post.id()}}/edit">
+		<button title="edit" class="button-action icon-pencil"></button>
+	</form>
+	<form method="post" action="/posts/{{blog_post.id()}}/delete">
+		<button title="delete" class="button-action icon-cross"></button>
+	</form>
+</div>
 <hr>
 {% endfor %}
 

@@ -1,10 +1,18 @@
 {% extends "base.html" %}
+{% set show_new_post = False %}
 
 {% block content %}
 <form method="post" action="/newpost">
-	<input class="title-input" name="subject" value="{{title}}"></input>
-	<textarea name="content">{{text}}</textarea>
+	<input class="title-input" name="title" value="{{title}}"></input>
+	<textarea name="text">{{text}}</textarea>
 	<button>Submit</button>
 </form>
-<div class="post-error">{% if error %}{{error}}{% endif %}</div>
+<div class="post-error">
+	{% if params['missing_title'] %}
+	<p class="error">Post is missing a title.</p>
+	{% endif %}
+	{% if params['missing_text'] %}
+	<p class="error">Post is missing a body.</p>
+	{% endif %}
+</div>
 {% endblock %}

@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>{{title}}</h2>
-<p>{{text}}</p>
+<div>
+<h2>{{blog_post.title}}</h2>
+<h4>Created by {{blog_post.user_id}} on {{blog_post.created.date()}}</h4>
+<p>{{blog_post.text}}</p>
+</div>
+<div class="edit-actions">
+	<form method="get" action="/posts/{{blog_post.id()}}/edit">
+		<button title="edit" class="button-action icon-pencil"></button>
+	</form>
+	<form method="post" action="/posts/{{blog_post.id()}}/delete">
+		<button title="delete" class="button-action icon-cross"></button>
+	</form>
+</div>
 {% endblock %}

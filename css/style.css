@@ -5,25 +5,28 @@ body {
 	margin-right: auto;
 }
 
-
-img {
-	max-width: 100%;
-}
-
-h1 {
-	font-family: 'Roboto Slab', serif;
+header {
 	border-bottom: 2px solid black;
 }
 
-h2 {
-	font-family: 'Roboto Slab', serif;
+h1, h2, h3, h4 {
+	font-family: 'Roboto Slab', serif;	
 }
 
-/*input[type=text] {
-	width: 400px;
-	font-family: 'Open Sans', sans-serif;
+h3 {
+	margin-top: 0;
+	margin-bottom: 0;
 }
-*/
+
+h4 {
+	color: gray;
+	font-size: 14px;
+}
+
+p {
+	text-indent: 2em;
+}
+
 textarea {
 	resize: none;
 	width: calc(100% - 2px);
@@ -32,9 +35,39 @@ textarea {
 	padding: 0;
 }
 
+.nodec {
+	text-decoration: none;
+}
+
 .title-link {
 	color: black;
 	text-decoration: none;
+}
+
+.nav-link {
+	color: black;
+	text-decoration: none;
+}
+
+
+.nav-item {
+	padding: 5px;
+	margin: 10px;
+	border: 1px solid gray;
+	border-radius: 5%;
+	color: black;
+}
+
+.nav-item:hover {
+	background-color: orange;
+}
+
+.header-actions .nav-item:first-of-type {
+	margin-left: 0;
+}
+
+.header-login .nav-item:last-of-type {
+	margin-right: 0;
 }
 
 .row-name {
@@ -56,7 +89,46 @@ textarea {
 	border: 1px solid black;
 }
 
-.user-name {
+.sub-header {
 	width: 100%;
+	display: flex;
+	margin-top: 0;
+}
+
+.header-welcome {
+	width: 100%;
+	display: inline;
 	text-align: right;
+}
+
+.header-actions {
+	width: 50%;
+	text-align: left;
+	display: flex;
+	justify-content: flex-start;
+}
+
+.header-login {
+	width: 50%;
+	text-align: right;
+	display: flex;
+	justify-content: flex-end;
+}
+
+.button-action {
+	border:none;
+	outline:none;
+	background:none;
+	font-size:inherit;
+	cursor: pointer;
+	margin: 5px;
+}
+
+.error {
+	color: red;
+}
+
+.edit-actions {
+	display:flex;
+	justify-content: flex-end;
 }

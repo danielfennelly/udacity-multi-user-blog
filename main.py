@@ -5,6 +5,7 @@ import string
 import re
 import random
 import hashlib
+import datetime
 
 from google.appengine.ext import ndb
 
@@ -14,7 +15,13 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 	autoescape=True)
 
-# NB: This is not ideal cryptographic practice.
+FORBIDDEN = 403
+
+# ----- Crypto -----
+
+with open('secret', 'r') as f:
+	secret = f.read()
+
 def make_salt():
 	return string.join(random.sample(string.ascii_letters, 20),'')
 
@@ -32,16 +39,28 @@ def valid_pw(name, pw, h):
 	salt = h.split(',')[1]
 	return h == make_pw_hash(name, pw, salt)
 
+# ----- Models -----
+
 class BlogPost(ndb.Model):
 	title = ndb.StringProperty(required = True)
 	text = ndb.TextProperty(required = True)
+	user_id = ndb.StringProperty(required = True)
 	created = ndb.DateTimeProperty(auto_now_add = True)
+
+	def id(self):
+		return self.key.id()
+
 
 class User(ndb.Model):
 	# Assume username is id in model
 	hashed_password = ndb.StringProperty(required = True)
 	email = ndb.StringProperty(required = False)
 	created = ndb.DateTimeProperty(auto_now_add = True)
+
+	def id(self):
+		return self.key.id()
+
+# ----- Handlers -----
 
 class Handler(webapp2.RequestHandler):
 	def write(self, *a, **kw):
@@ -67,52 +86,11 @@ class Handler(webapp2.RequestHandler):
 		return None
 
 	def set_user(self, user):
-		header = '%s=%s|%s; Path=/' % ('user_id', user.key.id(), unsalt(user.hashed_password))
+		header = '%s=%s|%s; Path=/' % ('user_id', user.id(), unsalt(user.hashed_password))
 		self.response.headers.add_header('Set-Cookie', str(header))
 
 	def clear_user(self):
 		self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
-
-class MainPage(Handler):
-
-    def get(self):
-    	posts = BlogPost.query().order(-BlogPost.created)
-    	self.render("index.html", posts = posts, user = self.get_user())
-
-class NewPostPage(Handler):
-
-	def render_new_post(self, title= "", text= "", user = None, error = None):
-		self.render("newpost.html", subject = title, content = text, user = user, error = error)
-
-	def get(self):
-		self.render_new_post(user = self.get_user())
-
-	def post(self):
-		title = self.request.get("subject")
-		text = self.request.get("content")
-
-		if title and text:
-			post = BlogPost(title = title, text = text)
-			post.put()
-			post_id = post.key().id()
-			self.redirect("/posts/%d" % post_id)
-		else:
-			self.render_new_post(
-				title = title,
-				text=text,
-				user = self.get_user(),
-				error="We need both a title and text")
-
-class PermalinkPage(Handler):
-
-	def get(self, post_id):
-		post = BlogPost.get_by_id(int(post_id))
-		if post:
-			self.render("permalink.html", title = post.title, text = post.text)
-		else:
-			self.redirect("/")
-
-class SignupPage(Handler):
 
 	def register_user(self, username, password, email):
 		hashed_password = make_pw_hash(username, password)
@@ -123,38 +101,129 @@ class SignupPage(Handler):
 		user.put()
 		return user
 
+class MainPage(Handler):
+
+    def get(self):
+    	posts = BlogPost.query().order(-BlogPost.created)
+    	user = self.get_user()
+    	self.render('index.html', posts = posts, user = user)
+
+class NewPostPage(Handler):
+
+	def render_new_post(self, title= '', text= '', user = None, params = {}):
+		self.render('newpost.html', title = title, text = text, user = user, params = params)
+
 	def get(self):
-		if self.get_user():
-			self.redirect("/welcome")
-		else:
-			self.render("signup.html")
+		user = self.get_user()
+		if not user:
+			self.redirect('/signup')
+		self.render_new_post(user = self.get_user())
 
 	def post(self):
-		username = self.request.get("username")
-		password = self.request.get("password")
-		verify = self.request.get("verify")
-		email = self.request.get("email")
+		user = self.get_user()
+		if not user:
+			self.redirect('/signup')
+
+		params = {}
+
+		title = self.request.get('title')
+		params['missing_title'] = not title
+
+		text = self.request.get('text')
+		params['missing_text'] = not text
+
+		if title and text:
+			post = BlogPost(title = title, text = text, user_id = user.id())
+			post.put()
+			post_id = post.key.id()
+			self.redirect('/posts/%d' % post_id)
+		else:
+			self.render_new_post(
+				title = title,
+				text = text,
+				user = user,
+				params = params)
+
+class PermalinkPage(Handler):
+
+	def get(self, post_id):
+		blog_post = BlogPost.get_by_id(int(post_id))
+		if blog_post:
+			user = self.get_user()
+			self.render('permalink.html', blog_post = blog_post, user = user)
+		else:
+			self.redirect('/')
+
+class DeletePage(Handler):
+
+	def post(self, post_id):
+		blog_post = BlogPost.get_by_id(int(post_id))
+		user = self.get_user()
+
+		if (blog_post.user_id == user.id()):
+			blog_post.key.delete()
+			self.redirect('/')
+		else:
+			response.set_status(FORBIDDEN)
+
+class SignupPage(Handler):
+
+	def validate_params(self, request):
+		username = request.get('username')
+		password = request.get('password')
+		verify   = request.get('verify')
+		email    = request.get('email')
+
+		params = {}
+		valid_form_data = True
 
 		valid_username = validators.validate_username(username)
-		valid_password = validators.validate_password(password, verify)
-		valid_email = validators.validate_email(email)
-
-		has_valid_email = valid_email or (email == '')
-
-		existing_user = User.get_by_id(valid_username)
-
-		if existing_user:
-			error = 'A user already exists with that username.'
-			print(error)
-			self.render('signup.html', error = error)
-		elif valid_username and valid_password and has_valid_email:
-			user = self.register_user(valid_username, valid_password, valid_email)
-			self.set_user(user)
-			self.redirect("/welcome")
+		if valid_username:
+			params['username'] = valid_username
 		else:
-			# TODO: add error messages
-			print('Invalid form data')
+			params['invalid_username'] = True
+			valid_form_data = False
+
+		valid_password = validators.validate_password(password, verify)
+		if valid_password:
+			params['password'] = valid_password
+		else:
+			params['invalid_password'] = True
+			valid_form_data = False
+
+		valid_email = validators.validate_email(email)
+		if valid_email or (email == ''):
+			params['email'] = valid_email
+		else:
+			params['invalid_email'] = True
+			valid_form_data = False
+
+		if valid_username:
+			existing_user = User.get_by_id(params['username'])
+			if existing_user:
+				params['user_already_exists'] = True
+				valid_form_data = False
+
+		return (params, valid_form_data)
+
+	def get(self):
+		if self.get_user():
+			self.redirect('/welcome')
+		else:
 			self.render('signup.html')
+
+	def post(self):
+		params, valid_post = self.validate_params(self.request)
+
+		if valid_post:
+			user = self.register_user(
+				params['username'],
+				params['password'],
+				params['email'])
+			self.set_user(user)
+			self.redirect('/welcome')
+		else:
+			self.render('signup.html', params = params)
 
 class LoginPage(Handler):
 
@@ -163,27 +232,22 @@ class LoginPage(Handler):
 		if user:
 			self.redirect('/welcome')
 		else:
-			self.render("login.html")
+			self.render('login.html')
 
-	#TODO
 	def post(self):
-		username = self.request.get("username")
-		password = self.request.get("password")
+		username = self.request.get('username')
+		password = self.request.get('password')
 
 		user = User.get_by_id(username)
+		params = {}
 
-		if user:
-			if valid_pw(username, password, user.hashed_password):
-				self.set_user(user)	
-				self.redirect('/welcome')
-			else:
-				error = 'Password was incorrect.'
-				print(error)
-				self.render('login.html', error = error)
+		if user and valid_pw(username, password, user.hashed_password):
+			self.set_user(user)	
+			self.redirect('/welcome')
 		else:
-			error = 'That user does not exist.'
-			print(error)
-			self.render('login.html', error)
+			params['login_failure'] = True
+
+		self.render('login.html', params = params)
 
 class WelcomePage(Handler):
 	def get(self):
@@ -194,22 +258,26 @@ class WelcomePage(Handler):
 			self.redirect('/login')
 
 class LogoutPage(Handler):
-	def get(self):
+	def logout(self):
 		self.clear_user()
 		self.redirect('/signup')
-		# self.render('logout.html', user = self.get_user())
+
+	def get(self):
+		self.logout()
 
 	def post(self):
-		self.clear_user()
-		self.redirect('/signup')
+		self.logout()
+
+# ----- App Config -----
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/newpost', NewPostPage),
     ('/signup', SignupPage),
-    ('/login', LoginPage),
     ('/welcome', WelcomePage),
+    ('/login', LoginPage),
     ('/logout', LogoutPage),
-    (r'/posts/(\d+)', PermalinkPage)
+    (r'/posts/(\d+)', PermalinkPage),
+    (r'/posts/(\d+)/delete', DeletePage)
 ], debug=True)
 
