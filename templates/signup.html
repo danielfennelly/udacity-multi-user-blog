@@ -8,21 +8,37 @@
 	<table align="center">
 		<tr>
 			<td class='row-name'>Username</td>
-			<td><input type="text" name="username">{{username}}</input></td>
+			{% if params.get('username') %}
+			<td><input type="text" name="username" value="{{params['username']}}"></input></td>
+			{% else %}
+			<td><input type="text" name="username"></input></td>
+			{% endif %}
 		</tr>
 		<tr>
 			<td class='row-name'>Password</td>
-			<td><input type="password" name="password">{{password}}</input></td>
+			<td><input type="password" name="password"></input></td>
 		</tr>
 		<tr>
 			<td class='row-name'>Verify Password</td>
-			<td><input type="password" name="verify">{{verify}}</input></td>
+			<td><input type="password" name="verify"></input></td>
 		</tr>
 		<tr>
 			<td class='row-name'>Email</td>
-			<td><input type="text" name="email">{{email}}</input></td>
+			<td><input type="text" name="email"></input></td>
 		</tr>
 	</table>
 	<button>Submit</button>
 </form>
+<div class="post-error">
+	{% if params.get('user_already_exists') %}
+	<p class="error">That username is already taken</p>
+	{% endif %}
+	{% if params.get('invalid_password') %}
+	<p class="error">Invalid password. Check that passwords match.</p>
+	{% endif %}
+	{% if params.get('invalid_email') %}
+	<p class="error">Email was invalid.</p>
+	{% endif %}
+</div>
+
 {% endblock %}

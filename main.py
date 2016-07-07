@@ -254,6 +254,7 @@ class SignupPage(Handler):
 			existing_user = User.get_by_id(params['username'])
 			if existing_user:
 				params['user_already_exists'] = True
+				params['username'] = None
 				valid_form_data = False
 
 		return (params, valid_form_data)
@@ -262,7 +263,7 @@ class SignupPage(Handler):
 		if self.get_user():
 			self.redirect('/welcome')
 		else:
-			self.render('signup.html')
+			self.render('signup.html', params = {})
 
 	def post(self):
 		params, valid_post = self.validate_params(self.request)
@@ -284,7 +285,7 @@ class LoginPage(Handler):
 		if user:
 			self.redirect('/welcome')
 		else:
-			self.render('login.html')
+			self.render('login.html', params = {})
 
 	def post(self):
 		username = self.request.get('username')
@@ -299,7 +300,7 @@ class LoginPage(Handler):
 		else:
 			params['login_failure'] = True
 
-		self.render('login.html', params = params)
+		self.render('login.html', username = username, params = params)
 
 class WelcomePage(Handler):
 	def get(self):

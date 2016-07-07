@@ -8,13 +8,19 @@
 	<table align="center">
 		<tr>
 			<td class='row-name'>Username</td>
-			<td><input type="text" name="username">{{username}}</input></td>
+			<td><input type="text" name="username" value="{{username}}"></input></td>
 		</tr>
 		<tr>
 			<td class='row-name'>Password</td>
-			<td><input type="password" name="password">{{password}}</input></td>
+			<td><input type="password" name="password"></input></td>
 		</tr>
 	</table>
 	<button>Submit</button>
 </form>
+<div class="post-error">
+	{% if params.get('login_failure') %}
+	<p class="error">Incorrect username or password.</p>
+	{% endif %}
+</div>
+
 {% endblock %}
