@@ -1,3 +1,5 @@
+{% set active_page = active_page|default('index') -%}	
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,17 +22,16 @@
 </head>
 <body>
 	<header class="title">
-		<a href="/" class="title-link"><h1>A Simple Multi-user Blog</h1></a>
+		<a href="/" class="title-link"><h1>A Simple Multi-User Blog</h1></a>
 	</header>
 	{% if user %}
 	<div class="header-welcome">
-		<h3>{{user.key.id()}}</h3>
+		<h3>{{user.id()}}</h3>
 	</div>
 	{% endif %}
 	<div class="sub-header">
 		<div class="header-actions">
-			{% set show_new_post = show_new_post|default(True) -%}
-			{% if user and show_new_post %}
+			{% if user and active_page != 'new_post' %}
 			<a class="nodec" href="/newpost">
 				<div class="nav-item">
 					<h3>New Post</h3>
@@ -47,16 +48,20 @@
 					</div>
 				</a>
 			{% else %}
+				{% if active_page != 'signup' %}
 				<a class="nodec" href="/signup">
 					<div class="nav-item">
 						<h3>Sign Up</h3>
 					</div>
 				</a>
+				{% endif %}
+				{% if active_page != 'login' %}
 				<a class="nodec" href="/login">
 					<div class="nav-item">
 						<h3>Log In</h3>
 					</div>
 				</a>
+				{% endif %}
 			{% endif %}
 		</div>
 	</div>

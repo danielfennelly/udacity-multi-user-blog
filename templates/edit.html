@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% set active_page = 'new_post' -%}
+{% set active_page = 'edit' -%}
 
 {% block content %}
-<h2>New Post</h2>
-<form method="post" action="/newpost">
-	<input class="title-input" name="title" value="{{title}}"></input>
-	<textarea name="text">{{text}}</textarea>
+<h2>Edit Post</h2>
+<form method="post" action="/posts/{{blog_post.id()}}/edit">
+	<input class="title-input" name="title" value="{{blog_post.title}}"></input>
+	<textarea name="text">{{blog_post.text}}</textarea>
 	<div style="display:flex;">
 		<button class="nodec nav-item">Submit</button>
-		<a class="nodec nav-item" href="/">Cancel</a>
+		<a class="nodec nav-item" href="/posts/{{blog_post.id()}}">Cancel</a>
 	</div>
 </form>
 <div class="post-error">

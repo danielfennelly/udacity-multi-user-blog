@@ -16,6 +16,7 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 	autoescape=True)
 
 FORBIDDEN = 403
+NOT_FOUND = 404
 
 # ----- Crypto -----
 
@@ -139,9 +140,60 @@ class NewPostPage(Handler):
 			self.redirect('/posts/%d' % post_id)
 		else:
 			self.render_new_post(
-				title = title,
-				text = text,
-				user = user,
+				title  = title,
+				text   = text,
+				user   = user,
+				params = params)
+
+class EditPage(Handler):
+
+	def render_edit_post(self, blog_post, user, params = {}):
+		self.render('edit.html', blog_post = blog_post, user = user, params = params)
+
+	def get(self, post_id):
+		user = self.get_user()
+		blog_post = BlogPost.get_by_id(int(post_id))
+
+		if not user:
+			self.redirect('/signup')
+		if not blog_post:
+			response.set_status(NOT_FOUND)
+		if blog_post.user_id != user.id():
+			response.set_status(FORBIDDEN)
+
+		self.render_edit_post(
+			blog_post = blog_post,
+			user   = user,
+			params = {})
+
+	def post(self, post_id):
+		user = self.get_user()
+		blog_post = BlogPost.get_by_id(int(post_id))
+
+		if not user:
+			self.redirect('/signup')
+		if not blog_post:
+			response.set_status(NOT_FOUND)
+		if blog_post.user_id != user.id():
+			response.set_status(FORBIDDEN)
+
+		params = {}
+
+		title = self.request.get('title')
+		params['missing_title'] = not title
+
+		text = self.request.get('text')
+		params['missing_text'] = not text
+
+		if title and text:
+			blog_post.title = title
+			blog_post.text = text
+			blog_post.put()
+			self.redirect('/posts/%d' % int(post_id))
+		else:
+			self.render_edit_post(
+				blog_post = blog_post,
+				user   = user,
 				params = params)
 
 class PermalinkPage(Handler):
@@ -278,6 +330,7 @@ app = webapp2.WSGIApplication([
     ('/login', LoginPage),
     ('/logout', LogoutPage),
     (r'/posts/(\d+)', PermalinkPage),
-    (r'/posts/(\d+)/delete', DeletePage)
+    (r'/posts/(\d+)/delete', DeletePage),
+    (r'/posts/(\d+)/edit', EditPage)
 ], debug=True)
 
