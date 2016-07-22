@@ -30,10 +30,17 @@ h4 {
 textarea {
 	resize: none;
 	width: calc(100% - 2px);
-	height: 400px;
 	font-family: 'Open Sans', sans-serif;
 	padding: 0;
 	font-size: inherit;
+}
+
+.newpost-box {
+	height: 400px;
+}
+
+.comment-box {
+	height: 100px;
 }
 
 .nodec {
@@ -125,6 +132,10 @@ textarea {
 	font-size:inherit;
 	cursor: pointer;
 	margin: 5px;
+}
+
+.liked {
+	color: red;
 }
 
 .error {

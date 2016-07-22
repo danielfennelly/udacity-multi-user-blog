@@ -10,6 +10,7 @@
 <pre>{{blog_post.text}}</pre>
 </div>
 <div class="edit-actions">
+	<p>{{blog_post.comments}}</p>
 	<form method="get" action="/posts/{{blog_post.key.id()}}">
 		<button title="comments" class="button-action icon-bubbles" href="/posts/{{blog_post.key.id()}}"></button>
 	</form>
@@ -24,8 +25,13 @@
 		<button title="delete" class="button-action icon-cross"></button>
 	</form>
 {% else %}
+	<p>{{blog_post.likes}}</p>
 	<form method="post" action="/posts/{{blog_post.id()}}/like">
+		{% if blog_post.id() in likes %}
+		<button title="like" class="button-action liked icon-heart"></button>
+		{% else %}
 		<button title="like" class="button-action icon-heart"></button>
+		{% endif %}
 	</form>
 {% endif %}
 </div>

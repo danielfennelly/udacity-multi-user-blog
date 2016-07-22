@@ -25,4 +25,24 @@
 	</form>
 {% endif %}
 </div>
+<div class="comments">
+	<form method="post" action="/posts/{{blog_post.id()}}/comment"> <!-- FIXME -->
+		<textarea name="text" class="comment-box"></textarea>
+		<div style="display:flex;">
+			<button class="nodec nav-item">Submit</button>
+			<a class="nodec nav-item" href="/">Cancel</a>
+		</div>
+	</form>
+{% for comment in comments %}
+	<div style="display:flex" class="comment">
+		<div style="width:20%">
+			<h4>{{comment.user_id}}</h4>
+		</div>
+		<div>
+			<pre>{{comment.text}}</pre>
+		</div>
+	</div>
+{% endfor %}
+
+</div>
 {% endblock %}

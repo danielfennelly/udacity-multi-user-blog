@@ -10,56 +10,16 @@ import datetime
 from google.appengine.ext import ndb
 
 import validators
+from models import BlogPost, User, Comment, Like
+from crypto import *
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 	autoescape=True)
 
+BAD_REQUEST = 400
 FORBIDDEN = 403
 NOT_FOUND = 404
-
-# ----- Crypto -----
-
-with open('secret', 'r') as f:
-	secret = f.read()
-
-def make_salt():
-	return string.join(random.sample(string.ascii_letters, 20),'')
-
-def make_pw_hash(name, pw, salt=None):
-    if not salt:
-        salt = make_salt()
-    h = hashlib.sha256(name + pw + salt).hexdigest()
-    return '%s,%s' % (h, salt)
-
-def unsalt(hash_and_salt):
-	hashed, salt = hash_and_salt.split(',')
-	return hashed
-
-def valid_pw(name, pw, h):
-	salt = h.split(',')[1]
-	return h == make_pw_hash(name, pw, salt)
-
-# ----- Models -----
-
-class BlogPost(ndb.Model):
-	title = ndb.StringProperty(required = True)
-	text = ndb.TextProperty(required = True)
-	user_id = ndb.StringProperty(required = True)
-	created = ndb.DateTimeProperty(auto_now_add = True)
-
-	def id(self):
-		return self.key.id()
-
-
-class User(ndb.Model):
-	# Assume username is id in model
-	hashed_password = ndb.StringProperty(required = True)
-	email = ndb.StringProperty(required = False)
-	created = ndb.DateTimeProperty(auto_now_add = True)
-
-	def id(self):
-		return self.key.id()
 
 # ----- Handlers -----
 
@@ -80,6 +40,7 @@ class Handler(webapp2.RequestHandler):
 			print('cookie %s' % user_id)
 			username, user_hash = user_id.split("|") # FRAGILE, DON'T TRUST COOKIE VALUES
 			if username:
+				print('username %s' % username)
 				user = User.get_by_id(username)
 				real_hashed_pw = unsalt(user.hashed_password)
 				if user_hash == real_hashed_pw:
@@ -102,12 +63,21 @@ class Handler(webapp2.RequestHandler):
 		user.put()
 		return user
 
+
 class MainPage(Handler):
 
     def get(self):
     	posts = BlogPost.query().order(-BlogPost.created)
     	user = self.get_user()
-    	self.render('index.html', posts = posts, user = user)
+    	if user:
+    		like_models = Like.query(Like.user_id == user.id())
+    		likes = [like.post_id for like in like_models]
+    	else:
+    		likes = []
+
+    	print('likes (%s)' % likes)
+
+    	self.render('index.html', posts = posts, user = user, likes = likes)
 
 class NewPostPage(Handler):
 
@@ -198,13 +168,70 @@ class EditPage(Handler):
 
 class PermalinkPage(Handler):
 
-	def get(self, post_id):
-		blog_post = BlogPost.get_by_id(int(post_id))
+	def get(self, post_id_str):
+		post_id = int(post_id_str)
+
+		blog_post = BlogPost.get_by_id(post_id)
 		if blog_post:
 			user = self.get_user()
-			self.render('permalink.html', blog_post = blog_post, user = user)
+			comments = Comment.query(Comment.post_id == post_id)
+
+			self.render('permalink.html',
+				blog_post = blog_post,
+				user = user,
+				comments = comments)
 		else:
 			self.redirect('/')
+
+class CommentHandler(Handler):
+
+	def post(self, post_id):
+		blog_post = BlogPost.get_by_id(int(post_id))
+		user = self.get_user()
+		text = self.request.get('text')
+
+		if blog_post and user and text:
+			comment = Comment(
+				post_id = blog_post.id(),
+				user_id = user.id(),
+				text = text)
+			comment.put()
+			blog_post.comments = blog_post.comments + 1
+			blog_post.put()
+			self.redirect('/posts/%s' % post_id)
+		elif not user:
+			response.set_status(FORBIDDEN)
+		elif not blog_post:
+			response.set_status(NOT_FOUND)
+		else:
+			response.set_status(BAD_REQUEST)
+
+class LikeHandler(Handler):
+
+	def post(self, post_id):
+		blog_post = BlogPost.get_by_id(int(post_id))
+		user = self.get_user()
+
+		if not blog_post:
+			response.set_status(NOT_FOUND)
+		elif not user:
+			response.set_status(FORBIDDEN)
+		elif (user.id() is blog_post.user_id):
+			response.set_status(BAD_REQUEST)
+		else:
+			existing_like = Like.query(
+				Like.post_id == blog_post.id(),
+				Like.user_id == user.id())
+			if not existing_like:
+				print('making new like')
+				new_like = Like(user_id = user.id(), post_id = blog_post.id())
+				new_like.put()
+				blog_post.likes = blog_post.likes + 1
+				blog_post.put()
+				# TODO: If users can like from home or permalink, how do we stay on that page?
+				self.redirect('/posts/%s' % post_id)
+			else:
+				existing_like.key.delete()
 
 class DeletePage(Handler):
 
@@ -332,6 +359,8 @@ app = webapp2.WSGIApplication([
     ('/logout', LogoutPage),
     (r'/posts/(\d+)', PermalinkPage),
     (r'/posts/(\d+)/delete', DeletePage),
-    (r'/posts/(\d+)/edit', EditPage)
+    (r'/posts/(\d+)/edit', EditPage),
+    (r'/posts/(\d+)/comment', CommentHandler),
+    (r'/posts/(\d+)/like', LikeHandler)
 ], debug=True)
 
