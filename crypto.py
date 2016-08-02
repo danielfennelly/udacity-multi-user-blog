@@ -1,3 +1,7 @@
+import string
+import random
+import hashlib
+
 with open('secret', 'r') as f:
 	secret = f.read()
 

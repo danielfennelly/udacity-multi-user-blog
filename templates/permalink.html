@@ -5,7 +5,7 @@
 {% block content %}
 <div>
 <h2>{{blog_post.title}}</h2>
-<h4>Created by {{blog_post.user_id}} on {{blog_post.created.date()}}</h4>
+<h4>Created by {{blog_post.author_name}} on {{blog_post.created.date()}}</h4>
 <pre>{{blog_post.text}}</pre>
 </div>
 <div class="edit-actions">
@@ -21,7 +21,11 @@
 	</form>
 {% else %}
 	<form method="post" action="/posts/{{blog_post.id()}}/like">
+		{% if liked %}
+		<button title="like" class="button-action icon-heart liked"></button>
+		{% else %}
 		<button title="like" class="button-action icon-heart"></button>
+		{% endif %}
 	</form>
 {% endif %}
 </div>
@@ -36,7 +40,7 @@
 {% for comment in comments %}
 	<div style="display:flex" class="comment">
 		<div style="width:20%">
-			<h4>{{comment.user_id}}</h4>
+			<h4>{{comment.user_name}}</h4>
 		</div>
 		<div>
 			<pre>{{comment.text}}</pre>

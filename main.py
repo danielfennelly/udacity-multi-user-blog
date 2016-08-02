@@ -24,40 +24,51 @@ NOT_FOUND = 404
 # ----- Handlers -----
 
 class Handler(webapp2.RequestHandler):
+	"""
+	"""
+
+
 	def write(self, *a, **kw):
 		self.response.out.write(*a, **kw)
+
 
 	def render_str(self, template, **params):
 		t = jinja_env.get_template(template)
 		return t.render(params)
 
+
 	def render(self, template, **kw):
 		self.write(self.render_str(template, **kw))
 
+
 	def get_user(self):
-		user_id = self.request.cookies.get("user_id")
-		if user_id:
-			print('cookie %s' % user_id)
-			username, user_hash = user_id.split("|") # FRAGILE, DON'T TRUST COOKIE VALUES
-			if username:
-				print('username %s' % username)
-				user = User.get_by_id(username)
+		user_cookie = self.request.cookies.get("user")
+		if user_cookie:
+			print('cookie %s' % user_cookie)
+			user_id, user_hash = user_cookie.split("|") # FRAGILE, DON'T TRUST COOKIE VALUES
+			if user_id:
+				user_id = int(user_id)
+				print('user_id = %d' % user_id)
+				user = User.get_by_id(user_id)
 				real_hashed_pw = unsalt(user.hashed_password)
 				if user_hash == real_hashed_pw:
 					return user
 		return None
 
+
 	def set_user(self, user):
-		header = '%s=%s|%s; Path=/' % ('user_id', user.id(), unsalt(user.hashed_password))
+		header = '%s=%s|%s; Path=/' % ('user', user.id(), unsalt(user.hashed_password))
 		self.response.headers.add_header('Set-Cookie', str(header))
 
+
 	def clear_user(self):
-		self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+		self.response.headers.add_header('Set-Cookie', 'user=; Path=/')
+
 
 	def register_user(self, username, password, email):
 		hashed_password = make_pw_hash(username, password)
 		user = User(
-			id = username,
+			username = username,
 			hashed_password = hashed_password,
 			email = email)
 		user.put()
@@ -65,30 +76,38 @@ class Handler(webapp2.RequestHandler):
 
 
 class MainPage(Handler):
+	"""
+	"""
 
-    def get(self):
-    	posts = BlogPost.query().order(-BlogPost.created)
-    	user = self.get_user()
-    	if user:
-    		like_models = Like.query(Like.user_id == user.id())
-    		likes = [like.post_id for like in like_models]
-    	else:
-    		likes = []
+	def get(self):
+		posts = BlogPost.query().order(-BlogPost.created)
+		user = self.get_user()
+		if user:
+			like_models = Like.query(Like.user_id == user.id())
+			likes = [like.post_id for like in like_models]
+		else:
+			likes = []
 
-    	print('likes (%s)' % likes)
+		print('likes %s' % likes)
 
-    	self.render('index.html', posts = posts, user = user, likes = likes)
+		self.render('index.html', posts = posts, user = user, likes = likes)
+
 
 class NewPostPage(Handler):
+	"""
+	"""
+
 
 	def render_new_post(self, title= '', text= '', user = None, params = {}):
 		self.render('newpost.html', title = title, text = text, user = user, params = params)
+
 
 	def get(self):
 		user = self.get_user()
 		if not user:
 			self.redirect('/signup')
 		self.render_new_post(user = self.get_user())
+
 
 	def post(self):
 		user = self.get_user()
@@ -104,7 +123,11 @@ class NewPostPage(Handler):
 		params['missing_text'] = not text
 
 		if title and text:
-			post = BlogPost(title = title, text = text, user_id = user.id())
+			post = BlogPost(
+				title = title,
+				text = text,
+				author_name = user.username,
+				author_id = user.id())
 			post.put()
 			post_id = post.key.id()
 			self.redirect('/posts/%d' % post_id)
@@ -115,10 +138,15 @@ class NewPostPage(Handler):
 				user   = user,
 				params = params)
 
+
 class EditPage(Handler):
+	"""
+	"""
+
 
 	def render_edit_post(self, blog_post, user, params = {}):
 		self.render('edit.html', blog_post = blog_post, user = user, params = params)
+
 
 	def get(self, post_id):
 		user = self.get_user()
@@ -128,13 +156,14 @@ class EditPage(Handler):
 			self.redirect('/signup')
 		if not blog_post:
 			response.set_status(NOT_FOUND)
-		if blog_post.user_id != user.id():
+		if blog_post.author_id != user.id():
 			response.set_status(FORBIDDEN)
 
 		self.render_edit_post(
 			blog_post = blog_post,
 			user   = user,
 			params = {})
+
 
 	def post(self, post_id):
 		user = self.get_user()
@@ -144,7 +173,7 @@ class EditPage(Handler):
 			self.redirect('/signup')
 		if not blog_post:
 			response.set_status(NOT_FOUND)
-		if blog_post.user_id != user.id():
+		if blog_post.author_id != user.id():
 			response.set_status(FORBIDDEN)
 
 		params = {}
@@ -166,24 +195,43 @@ class EditPage(Handler):
 				user   = user,
 				params = params)
 
+
 class PermalinkPage(Handler):
+	"""
+	"""
+	def get_comments(self, post_id):
+		comments = Comment.query(Comment.post_id == post_id).order(-Comment.created)
+		return comments
+
+	def get_liked(self, post_id, user = None):
+		if user:
+			like_models = Like.query(
+				Like.user_id == user.id(),
+				Like.post_id == post_id).fetch()
+			if len(like_models) > 0:
+				return True
+		return False
 
 	def get(self, post_id_str):
 		post_id = int(post_id_str)
 
 		blog_post = BlogPost.get_by_id(post_id)
+
 		if blog_post:
 			user = self.get_user()
-			comments = Comment.query(Comment.post_id == post_id)
-
+			comments = self.get_comments(blog_post.id())
+			liked = self.get_liked(blog_post.id(), user)
 			self.render('permalink.html',
 				blog_post = blog_post,
 				user = user,
-				comments = comments)
+				comments = comments,
+				liked = liked)
 		else:
 			self.redirect('/')
 
 class CommentHandler(Handler):
+	"""
+	"""
 
 	def post(self, post_id):
 		blog_post = BlogPost.get_by_id(int(post_id))
@@ -194,6 +242,7 @@ class CommentHandler(Handler):
 			comment = Comment(
 				post_id = blog_post.id(),
 				user_id = user.id(),
+				user_name = user.username,
 				text = text)
 			comment.put()
 			blog_post.comments = blog_post.comments + 1
@@ -208,6 +257,7 @@ class CommentHandler(Handler):
 
 class LikeHandler(Handler):
 
+
 	def post(self, post_id):
 		blog_post = BlogPost.get_by_id(int(post_id))
 		user = self.get_user()
@@ -216,24 +266,28 @@ class LikeHandler(Handler):
 			response.set_status(NOT_FOUND)
 		elif not user:
 			response.set_status(FORBIDDEN)
-		elif (user.id() is blog_post.user_id):
+		elif (user.id() == blog_post.author_id):
 			response.set_status(BAD_REQUEST)
 		else:
 			existing_like = Like.query(
 				Like.post_id == blog_post.id(),
-				Like.user_id == user.id())
-			if not existing_like:
-				print('making new like')
+				Like.user_id == user.id()).fetch()
+
+			if existing_like:
+				like = existing_like[0]
+				like.key.delete()
+				blog_post.likes = blog_post.likes - 1
+				blog_post.put()
+			else:
 				new_like = Like(user_id = user.id(), post_id = blog_post.id())
 				new_like.put()
 				blog_post.likes = blog_post.likes + 1
 				blog_post.put()
-				# TODO: If users can like from home or permalink, how do we stay on that page?
-				self.redirect('/posts/%s' % post_id)
-			else:
-				existing_like.key.delete()
+			self.redirect('/posts/%s' % post_id)
+
 
 class DeletePage(Handler):
+
 
 	def post(self, post_id):
 		blog_post = BlogPost.get_by_id(int(post_id))
@@ -246,6 +300,7 @@ class DeletePage(Handler):
 			response.set_status(FORBIDDEN)
 
 class SignupPage(Handler):
+
 
 	def validate_params(self, request):
 		username = request.get('username')
@@ -306,6 +361,8 @@ class SignupPage(Handler):
 			self.render('signup.html', params = params)
 
 class LoginPage(Handler):
+	"""
+	"""
 
 	def get(self):
 		user = self.get_user()
@@ -318,7 +375,12 @@ class LoginPage(Handler):
 		username = self.request.get('username')
 		password = self.request.get('password')
 
-		user = User.get_by_id(username)
+		users = User.query(User.username == username).fetch()
+		if users:
+			user = users[0]
+		else:
+			user = None
+
 		params = {}
 
 		if user and valid_pw(username, password, user.hashed_password):
@@ -329,7 +391,11 @@ class LoginPage(Handler):
 
 		self.render('login.html', username = username, params = params)
 
+
 class WelcomePage(Handler):
+	"""
+	"""
+
 	def get(self):
 		user = self.get_user()
 		if user:
@@ -338,12 +404,17 @@ class WelcomePage(Handler):
 			self.redirect('/login')
 
 class LogoutPage(Handler):
+	"""
+	"""
+
 	def logout(self):
 		self.clear_user()
 		self.redirect('/signup')
 
+
 	def get(self):
 		self.logout()
+
 
 	def post(self):
 		self.logout()

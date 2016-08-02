@@ -6,7 +6,7 @@
 {% for blog_post in posts %}
 <div>
 <h2><a class="title-link" href="/posts/{{blog_post.key.id()}}">{{blog_post.title}}</a></h2>
-<h4>Created by {{blog_post.user_id}} on {{blog_post.created.date()}}</h4>
+<h4>Created by {{blog_post.author_name}} on {{blog_post.created.date()}}</h4>
 <pre>{{blog_post.text}}</pre>
 </div>
 <div class="edit-actions">
@@ -14,7 +14,7 @@
 	<form method="get" action="/posts/{{blog_post.key.id()}}">
 		<button title="comments" class="button-action icon-bubbles" href="/posts/{{blog_post.key.id()}}"></button>
 	</form>
-{% if user and (blog_post.user_id == user.id()) %}
+{% if user and (blog_post.author_id == user.id()) %}
 	<form method="get" action="/posts/{{blog_post.id()}}/edit">
 		<button title="edit" class="button-action icon-pencil"></button>
 	</form>
@@ -28,7 +28,7 @@
 	<p>{{blog_post.likes}}</p>
 	<form method="post" action="/posts/{{blog_post.id()}}/like">
 		{% if blog_post.id() in likes %}
-		<button title="like" class="button-action liked icon-heart"></button>
+		<button title="like" class="button-action icon-heart liked"></button>
 		{% else %}
 		<button title="like" class="button-action icon-heart"></button>
 		{% endif %}
