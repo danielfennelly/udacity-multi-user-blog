@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+{% extends "permalink_base.html" %}
 
 {% set active_page = 'edit' -%}
 
-{% block content %}
+{% block post %}
 <h2>Edit Post</h2>
 <form method="post" action="/posts/{{blog_post.id()}}/edit">
 	<input class="title-input" name="title" value="{{blog_post.title}}"></input>
@@ -20,4 +20,8 @@
 	<p class="error">Post is missing a body.</p>
 	{% endif %}
 </div>
-{% endblock %}
+{% endblock post%}
+
+{% block comment_form %}
+<!-- Don't display comment submission form on edit page -->
+{% endblock comment_form %}

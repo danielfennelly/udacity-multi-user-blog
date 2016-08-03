@@ -134,8 +134,16 @@ textarea {
 	margin: 5px;
 }
 
+.button-action:disabled {
+	cursor:auto;
+}
+
 .liked {
 	color: red;
+}
+
+.owned {
+	color: gray;
 }
 
 .error {

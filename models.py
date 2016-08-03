@@ -24,6 +24,15 @@ class User(ndb.Model):
     def id(self):
         return self.key.id()
 
+    @staticmethod
+    def get_user(username):
+        users = User.query(User.username == username).fetch()
+        if users:
+            user = users[0]
+        else:
+            user = None
+        return user
+
 
 class Comment(ndb.Model):
     post_id = ndb.IntegerProperty(required=True)

@@ -1,52 +1,19 @@
-{% extends "base.html" %}
+{% extends "permalink_base.html" %}
 
 {% set active_page = 'permalink' -%}
 
-{% block content %}
-<div>
+{% block post %}
 <h2>{{blog_post.title}}</h2>
 <h4>Created by {{blog_post.author_name}} on {{blog_post.created.date()}}</h4>
 <pre>{{blog_post.text}}</pre>
-</div>
-<div class="edit-actions">
-{% if user and (blog_post.user_id == user.id()) %}
-	<form method="get" action="/posts/{{blog_post.id()}}/edit">
-		<button title="edit" class="button-action icon-pencil"></button>
-	</form>
-	<form 
-		method="post" 
-		action="/posts/{{blog_post.id()}}/delete"
-		onsubmit="return confirm('Are you sure you want to delete this post?')">
-		<button title="delete" class="button-action icon-cross"></button>
-	</form>
-{% else %}
-	<form method="post" action="/posts/{{blog_post.id()}}/like">
-		{% if liked %}
-		<button title="like" class="button-action icon-heart liked"></button>
-		{% else %}
-		<button title="like" class="button-action icon-heart"></button>
-		{% endif %}
-	</form>
-{% endif %}
-</div>
-<div class="comments">
-	<form method="post" action="/posts/{{blog_post.id()}}/comment"> <!-- FIXME -->
-		<textarea name="text" class="comment-box"></textarea>
-		<div style="display:flex;">
-			<button class="nodec nav-item">Submit</button>
-			<a class="nodec nav-item" href="/">Cancel</a>
-		</div>
-	</form>
-{% for comment in comments %}
-	<div style="display:flex" class="comment">
-		<div style="width:20%">
-			<h4>{{comment.user_name}}</h4>
-		</div>
-		<div>
-			<pre>{{comment.text}}</pre>
-		</div>
-	</div>
-{% endfor %}
+{% endblock post %}
 
-</div>
-{% endblock %}
+{% block comment_form %}
+<form method="post" action="/posts/{{blog_post.id()}}/comment"> <!-- FIXME -->
+	<textarea name="text" class="comment-box"></textarea>
+	<div style="display:flex;">
+		<button class="nodec nav-item">Submit</button>
+		<a class="nodec nav-item" href="/">Cancel</a>
+	</div>
+</form>
+{% endblock comment_form %}

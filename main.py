@@ -25,8 +25,7 @@ NOT_FOUND = 404
 
 
 class Handler(webapp2.RequestHandler):
-    """
-    """
+    """Base Handler class containing rendering and authentication methods"""
 
     def write(self, *a, **kw):
         self.response.out.write(*a, **kw)
@@ -41,12 +40,9 @@ class Handler(webapp2.RequestHandler):
     def get_user(self):
         user_cookie = self.request.cookies.get("user")
         if user_cookie:
-            print('cookie %s' % user_cookie)
-            # FRAGILE, DON'T TRUST COOKIE VALUES
-            user_id, user_hash = user_cookie.split("|")
+            user_id, user_hash = extract_user_id_hash(user_cookie)
             if user_id:
                 user_id = int(user_id)
-                print('user_id = %d' % user_id)
                 user = User.get_by_id(user_id)
                 real_hashed_pw = unsalt(user.hashed_password)
                 if user_hash == real_hashed_pw:
@@ -73,8 +69,7 @@ class Handler(webapp2.RequestHandler):
 
 
 class MainPage(Handler):
-    """
-    """
+    """Handler for the main index page displaying all posts"""
 
     def get(self):
         posts = BlogPost.query().order(-BlogPost.created)
@@ -91,8 +86,7 @@ class MainPage(Handler):
 
 
 class NewPostPage(Handler):
-    """
-    """
+    """Handler for creating new blog posts"""
 
     def render_new_post(self, title='', text='', user=None, params={}):
         self.render('newpost.html',
@@ -137,12 +131,54 @@ class NewPostPage(Handler):
                 params=params)
 
 
-class EditPage(Handler):
-    """
-    """
+class PageHandler(Handler):
+    """Base Handler for single post pages such as Permalink and Edit"""
 
-    def render_edit_post(self, blog_post, user, params={}):
-        self.render('edit.html', blog_post=blog_post, user=user, params=params)
+    def get_comments(self, post_id):
+        comments = Comment.query(
+            Comment.post_id == post_id).order(-Comment.created)
+        return comments
+
+    def get_liked(self, post_id, user=None):
+        if user:
+            like_models = Like.query(
+                Like.user_id == user.id(),
+                Like.post_id == post_id).fetch()
+            if len(like_models) > 0:
+                return True
+        return False
+
+
+class PermalinkPage(PageHandler):
+    """Handler for rendering a single blog post with comments"""
+
+    def get(self, post_id_str):
+        post_id = int(post_id_str)
+
+        blog_post = BlogPost.get_by_id(post_id)
+
+        if blog_post:
+            user = self.get_user()
+            comments = self.get_comments(blog_post.id())
+            liked = self.get_liked(blog_post.id(), user)
+            self.render('permalink.html',
+                        blog_post=blog_post,
+                        user=user,
+                        comments=comments,
+                        liked=liked)
+        else:
+            self.redirect('/')
+
+
+class EditPage(PageHandler):
+    """Handler for rendering an editable blog post with comments"""
+
+    def render_edit_post(self, blog_post, user, comments, params={}):
+        self.render('edit.html',
+                    blog_post=blog_post,
+                    user=user,
+                    comments=comments,
+                    params=params)
 
     def get(self, post_id):
         user = self.get_user()
@@ -155,9 +191,12 @@ class EditPage(Handler):
         if blog_post.author_id != user.id():
             response.set_status(FORBIDDEN)
 
+        comments = self.get_comments(blog_post.id())
+
         self.render_edit_post(
             blog_post=blog_post,
             user=user,
+            comments=comments,
             params={})
 
     def post(self, post_id):
@@ -191,44 +230,8 @@ class EditPage(Handler):
                 params=params)
 
 
-class PermalinkPage(Handler):
-    """
-    """
-    def get_comments(self, post_id):
-        comments = Comment.query(
-            Comment.post_id == post_id).order(-Comment.created)
-        return comments
-
-    def get_liked(self, post_id, user=None):
-        if user:
-            like_models = Like.query(
-                Like.user_id == user.id(),
-                Like.post_id == post_id).fetch()
-            if len(like_models) > 0:
-                return True
-        return False
-
-    def get(self, post_id_str):
-        post_id = int(post_id_str)
-
-        blog_post = BlogPost.get_by_id(post_id)
-
-        if blog_post:
-            user = self.get_user()
-            comments = self.get_comments(blog_post.id())
-            liked = self.get_liked(blog_post.id(), user)
-            self.render('permalink.html',
-                        blog_post=blog_post,
-                        user=user,
-                        comments=comments,
-                        liked=liked)
-        else:
-            self.redirect('/')
-
-
 class CommentHandler(Handler):
-    """
-    """
+    """Handler for the comments POST endpoint"""
 
     def post(self, post_id):
         blog_post = BlogPost.get_by_id(int(post_id))
@@ -254,8 +257,7 @@ class CommentHandler(Handler):
 
 
 class LikeHandler(Handler):
-    """
-    """
+    """Handler for the like/unlike POST endpoint"""
 
     def post(self, post_id):
         blog_post = BlogPost.get_by_id(int(post_id))
@@ -285,7 +287,8 @@ class LikeHandler(Handler):
             self.redirect('/posts/%s' % post_id)
 
 
-class DeletePage(Handler):
+class DeleteHandler(Handler):
+    """Handler for the delete page POST endpoint"""
 
     def post(self, post_id):
         blog_post = BlogPost.get_by_id(int(post_id))
@@ -299,8 +302,7 @@ class DeletePage(Handler):
 
 
 class SignupPage(Handler):
-    """
-    """
+    """Handler for the user signup page"""
 
     def validate_params(self, request):
         username = request.get('username')
@@ -333,7 +335,7 @@ class SignupPage(Handler):
             valid_form_data = False
 
         if valid_username:
-            existing_user = User.get_by_id(params['username'])
+            existing_user = User.get_user(params['username'])
             if existing_user:
                 params['user_already_exists'] = True
                 params['username'] = None
@@ -362,8 +364,7 @@ class SignupPage(Handler):
 
 
 class LoginPage(Handler):
-    """
-    """
+    """Handler for the user login page"""
 
     def get(self):
         user = self.get_user()
@@ -376,11 +377,7 @@ class LoginPage(Handler):
         username = self.request.get('username')
         password = self.request.get('password')
 
-        users = User.query(User.username == username).fetch()
-        if users:
-            user = users[0]
-        else:
-            user = None
+        user = User.get_user(username)
 
         params = {}
 
@@ -394,8 +391,7 @@ class LoginPage(Handler):
 
 
 class WelcomePage(Handler):
-    """
-    """
+    """Handler for the user welcome page"""
 
     def get(self):
         user = self.get_user()
@@ -405,9 +401,8 @@ class WelcomePage(Handler):
             self.redirect('/login')
 
 
-class LogoutPage(Handler):
-    """
-    """
+class LogoutHandler(Handler):
+    """Handler for the logout endpoint"""
 
     def logout(self):
         self.clear_user()
@@ -427,9 +422,9 @@ app = webapp2.WSGIApplication([
     ('/signup', SignupPage),
     ('/welcome', WelcomePage),
     ('/login', LoginPage),
-    ('/logout', LogoutPage),
+    ('/logout', LogoutHandler),
     (r'/posts/(\d+)', PermalinkPage),
-    (r'/posts/(\d+)/delete', DeletePage),
+    (r'/posts/(\d+)/delete', DeleteHandler),
     (r'/posts/(\d+)/edit', EditPage),
     (r'/posts/(\d+)/comment', CommentHandler),
     (r'/posts/(\d+)/like', LikeHandler)

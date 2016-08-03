@@ -14,6 +14,27 @@
 	<form method="get" action="/posts/{{blog_post.key.id()}}">
 		<button title="comments" class="button-action icon-bubbles" href="/posts/{{blog_post.key.id()}}"></button>
 	</form>
+	<p>{{blog_post.likes}}</p>
+	{% if user %}
+		<form method="post" action="/posts/{{blog_post.id()}}/like">
+		{% if user.id() == blog_post.author_id %}
+			<!-- show grayed out heart -->
+			<button class="button-action icon-heart owned" disabled></button>
+		{% else %}
+			<!-- show form -->
+			{% if blog_post.id() in likes%}
+			<button title="like" class="button-action icon-heart liked"></button>
+			{% else %}	
+			<button title="like" class="button-action icon-heart"></button>
+			{% endif %}
+		{% endif %}
+		</form>
+	{% else %}
+	<!-- redirect user to login upon liking -->
+	<a href="/login" class="icon-heart"></a>
+	{% endif %}
+
+
 {% if user and (blog_post.author_id == user.id()) %}
 	<form method="get" action="/posts/{{blog_post.id()}}/edit">
 		<button title="edit" class="button-action icon-pencil"></button>
@@ -23,15 +44,6 @@
 		action="/posts/{{blog_post.id()}}/delete"
 		onsubmit="return confirm('Are you sure you want to delete this post?')">
 		<button title="delete" class="button-action icon-cross"></button>
-	</form>
-{% else %}
-	<p>{{blog_post.likes}}</p>
-	<form method="post" action="/posts/{{blog_post.id()}}/like">
-		{% if blog_post.id() in likes %}
-		<button title="like" class="button-action icon-heart liked"></button>
-		{% else %}
-		<button title="like" class="button-action icon-heart"></button>
-		{% endif %}
 	</form>
 {% endif %}
 </div>
