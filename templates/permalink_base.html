@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% set active_page = 'permalink' -%}
+
+{% block content %}
+<div>
+	{% block post %}
+	{% endblock post %}
+</div>
+<div class="edit-actions">
+	<p>{{blog_post.likes}}</p>
+	{% if user %}
+		<form method="post" action="/posts/{{blog_post.id()}}/like">
+		{% if user.id() == blog_post.author_id %}
+			<!-- show grayed out heart -->
+			<button class="button-action icon-heart owned" disabled></button>
+		{% else %}
+			<!-- show form -->
+			{% if liked %}
+			<button title="like" class="button-action icon-heart liked"></button>
+			{% else %}	
+			<button title="like" class="button-action icon-heart"></button>
+			{% endif %}
+		{% endif %}
+		</form>
+	{% else %}
+	<!-- redirect user to login upon liking -->
+	<a href="/login" class="icon-heart"></a>
+	{% endif %}
+	{% if user and (blog_post.author_id == user.id()) %}
+	<form method="get" action="/posts/{{blog_post.id()}}/edit">
+		<button title="edit" class="button-action icon-pencil"></button>
+	</form>
+	<form 
+		method="post" 
+		action="/posts/{{blog_post.id()}}/delete"
+		onsubmit="return confirm('Are you sure you want to delete this post?')">
+		<button title="delete" class="button-action icon-cross"></button>
+	</form>
+	{% endif %}
+</div>
+<div class="comments">
+	{% block comment_form %}
+	{% endblock comment_form %}
+	{% for comment in comments %}
+	<div style="display:flex" class="comment">
+		<div style="width:20%">
+			<h4>{{comment.user_name}}</h4>
+		</div>
+		<div>
+			<pre>{{comment.text}}</pre>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% endblock content %}

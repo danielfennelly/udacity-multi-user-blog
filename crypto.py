@@ -3,9 +3,6 @@ import random
 import hashlib
 import re
 
-# TODO: unused so far? Review crypto notes
-with open('secret', 'r') as f:
-    secret = f.read()
 
 COOKIE_PATTERN = re.compile('\w+\|\w+')
 
