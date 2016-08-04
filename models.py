@@ -24,7 +24,7 @@ class User(ndb.Model):
     def id(self):
         return self.key.id()
 
-    @staticmethod
+    @classmethod
     def get_user(username):
         users = User.query(User.username == username).fetch()
         if users:
