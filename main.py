@@ -9,7 +9,7 @@ import webapp2
 
 from google.appengine.ext import ndb
 
-from crypto import *
+import crypto
 from models import BlogPost, User, Comment, Like
 import validators
 
@@ -40,7 +40,7 @@ class Handler(webapp2.RequestHandler):
     def get_user(self):
         user_cookie = self.request.cookies.get("user")
         if user_cookie:
-            user_id, user_hash = extract_user_id_hash(user_cookie)
+            user_id, user_hash = crypto.extract_user_id_hash(user_cookie)
             if user_id:
                 user_id = int(user_id)
                 user = User.get_by_id(user_id)
@@ -59,7 +59,7 @@ class Handler(webapp2.RequestHandler):
         self.response.headers.add_header('Set-Cookie', 'user=; Path=/')
 
     def register_user(self, username, password, email):
-        hashed_password = make_pw_hash(username, password)
+        hashed_password = crypto.make_pw_hash(username, password)
         user = User(
             username=username,
             hashed_password=hashed_password,
@@ -381,7 +381,7 @@ class LoginPage(Handler):
 
         params = {}
 
-        if user and valid_pw(username, password, user.hashed_password):
+        if user and crypto.valid_pw(username, password, user.hashed_password):
             self.set_user(user)
             self.redirect('/welcome')
         else:
