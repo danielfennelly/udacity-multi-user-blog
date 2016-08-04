@@ -98,13 +98,13 @@ class NewPostPage(Handler):
     def get(self):
         user = self.get_user()
         if not user:
-            self.redirect('/signup')
+            return self.redirect('/signup')
         self.render_new_post(user=self.get_user())
 
     def post(self):
         user = self.get_user()
         if not user:
-            self.redirect('/signup')
+            return self.redirect('/signup')
 
         params = {}
 
@@ -122,7 +122,7 @@ class NewPostPage(Handler):
                 author_id=user.id())
             post.put()
             post_id = post.key.id()
-            self.redirect('/posts/%d' % post_id)
+            return self.redirect('/posts/%d' % post_id)
         else:
             self.render_new_post(
                 title=title,
@@ -167,7 +167,7 @@ class PermalinkPage(PageHandler):
                         comments=comments,
                         liked=liked)
         else:
-            self.redirect('/')
+            return self.redirect('/')
 
 
 class EditPage(PageHandler):
@@ -185,7 +185,7 @@ class EditPage(PageHandler):
         blog_post = BlogPost.get_by_id(int(post_id))
 
         if not user:
-            self.redirect('/signup')
+            return self.redirect('/signup')
         if not blog_post:
             response.set_status(NOT_FOUND)
         if blog_post.author_id != user.id():
@@ -204,7 +204,7 @@ class EditPage(PageHandler):
         blog_post = BlogPost.get_by_id(int(post_id))
 
         if not user:
-            self.redirect('/signup')
+            return self.redirect('/signup')
         if not blog_post:
             response.set_status(NOT_FOUND)
         if blog_post.author_id != user.id():
@@ -294,7 +294,7 @@ class DeleteHandler(Handler):
         blog_post = BlogPost.get_by_id(int(post_id))
         user = self.get_user()
 
-        if (blog_post.user_id == user.id()):
+        if (blog_post.author_id == user.id()):
             blog_post.key.delete()
             self.redirect('/')
         else:
