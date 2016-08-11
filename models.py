@@ -25,8 +25,8 @@ class User(ndb.Model):
         return self.key.id()
 
     @classmethod
-    def get_user(username):
-        users = User.query(User.username == username).fetch()
+    def get_user(cls, username):
+        users = cls.query(cls.username == username).fetch()
         if users:
             user = users[0]
         else:
@@ -40,6 +40,9 @@ class Comment(ndb.Model):
     user_name = ndb.StringProperty(required=True)
     created = ndb.DateTimeProperty(auto_now_add=True)
     text = ndb.TextProperty(required=True)
+
+    def id(self):
+        return self.key.id()
 
 
 class Like(ndb.Model):
