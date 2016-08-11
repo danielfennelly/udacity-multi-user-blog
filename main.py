@@ -44,14 +44,14 @@ class Handler(webapp2.RequestHandler):
             if user_id:
                 user_id = int(user_id)
                 user = User.get_by_id(user_id)
-                real_hashed_pw = unsalt(user.hashed_password)
+                real_hashed_pw = crypto.unsalt(user.hashed_password)
                 if user_hash == real_hashed_pw:
                     return user
         return None
 
     def set_user(self, user):
         header = '%s=%s|%s; Path=/' % (
-            'user', user.id(), unsalt(user.hashed_password))
+            'user', user.id(), crypto.unsalt(user.hashed_password))
 
         self.response.headers.add_header('Set-Cookie', str(header))
 
@@ -222,7 +222,7 @@ class EditPage(PageHandler):
             blog_post.title = title
             blog_post.text = text
             blog_post.put()
-            self.redirect('/posts/%d' % int(post_id))
+            return self.redirect('/posts/%d' % int(post_id))
         else:
             self.render_edit_post(
                 blog_post=blog_post,
@@ -247,13 +247,62 @@ class CommentHandler(Handler):
             comment.put()
             blog_post.comments = blog_post.comments + 1
             blog_post.put()
-            self.redirect('/posts/%s' % post_id)
+            return self.redirect('/posts/%s' % post_id)
         elif not user:
             response.set_status(FORBIDDEN)
         elif not blog_post:
             response.set_status(NOT_FOUND)
         else:
             response.set_status(BAD_REQUEST)
+
+
+class CommentDeleteHandler(Handler):
+    """Handler for comment deletion endpoint"""
+
+    def post(self, post_id, comment_id):
+
+        blog_post = BlogPost.get_by_id(int(post_id))
+        comment = Comment.get_by_id(int(comment_id))
+        user = self.get_user()
+
+        if comment and user and blog_post:
+            entities_exist = True
+        else:
+            entities_exist = False
+
+        if entities_exist and comment.user_id == user.id():
+            comment.key.delete()
+            blog_post.comments = blog_post.comments - 1
+            blog_post.put()
+            return self.redirect('/posts/%s' % post_id)
+        elif entities_exist:
+            response.set_status(FORBIDDEN)
+        else:
+            response.set_status(NOT_FOUND)
+
+
+class CommentEditPage(PageHandler):
+    """Handler for comment editing page"""
+
+    def get(self, post_id, comment_id):
+        blog_post = BlogPost.get_by_id(int(post_id))
+        comment = Comment.get_by_id(int(comment_id))
+        user = self.get_user()
+
+        if comment and user and blog_post:
+            entities_exist = True
+        else:
+            entities_exist = False
+
+    def post(self, post_id, comment_id):
+        blog_post = BlogPost.get_by_id(int(post_id))
+        comment = Comment.get_by_id(int(comment_id))
+        user = self.get_user()
+
+        if comment and user and blog_post:
+            entities_exist = True
+        else:
+            entities_exist = False
 
 
 class LikeHandler(Handler):
@@ -284,7 +333,7 @@ class LikeHandler(Handler):
                 new_like.put()
                 blog_post.likes = blog_post.likes + 1
                 blog_post.put()
-            self.redirect('/posts/%s' % post_id)
+            return self.redirect('/posts/%s' % post_id)
 
 
 class DeleteHandler(Handler):
@@ -345,7 +394,7 @@ class SignupPage(Handler):
 
     def get(self):
         if self.get_user():
-            self.redirect('/welcome')
+            return self.redirect('/welcome')
         else:
             self.render('signup.html', params={})
 
@@ -369,7 +418,7 @@ class LoginPage(Handler):
     def get(self):
         user = self.get_user()
         if user:
-            self.redirect('/welcome')
+            return self.redirect('/welcome')
         else:
             self.render('login.html', params={})
 
@@ -398,7 +447,7 @@ class WelcomePage(Handler):
         if user:
             self.render('welcome.html', user=user)
         else:
-            self.redirect('/login')
+            return self.redirect('/login')
 
 
 class LogoutHandler(Handler):
@@ -406,7 +455,7 @@ class LogoutHandler(Handler):
 
     def logout(self):
         self.clear_user()
-        self.redirect('/signup')
+        return self.redirect('/signup')
 
     def get(self):
         self.logout()
@@ -427,5 +476,7 @@ app = webapp2.WSGIApplication([
     (r'/posts/(\d+)/delete', DeleteHandler),
     (r'/posts/(\d+)/edit', EditPage),
     (r'/posts/(\d+)/comment', CommentHandler),
+    (r'/posts/(\d+)/comments/(\d+)/delete', CommentDeleteHandler),
+    (r'/posts/(\d+)/comments/(\d+)/edit', CommentEditPage),
     (r'/posts/(\d+)/like', LikeHandler)
 ], debug=True)
