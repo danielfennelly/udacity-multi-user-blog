@@ -7,13 +7,3 @@
 <h4>Created by {{blog_post.author_name}} on {{blog_post.created.date()}}</h4>
 <pre>{{blog_post.text}}</pre>
 {% endblock post %}
-
-{% block comment_form %}
-<form method="post" action="/posts/{{blog_post.id()}}/comment"> <!-- FIXME -->
-	<textarea name="text" class="comment-box"></textarea>
-	<div style="display:flex;">
-		<button class="nodec nav-item">Submit</button>
-		<a class="nodec nav-item" href="/">Cancel</a>
-	</div>
-</form>
-{% endblock comment_form %}

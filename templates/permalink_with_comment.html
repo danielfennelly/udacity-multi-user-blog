@@ -1,0 +1,13 @@
+{% extends "permalink.html" %}
+
+{% set active_page = 'permalink' -%}
+
+{% block comment_form %}
+<form method="post" action="/posts/{{blog_post.id()}}/comment">
+	<textarea name="text" class="comment-box"></textarea>
+	<div style="display:flex;">
+		<button class="nodec nav-item">Submit</button>
+		<a class="nodec nav-item" href="/">Cancel</a>
+	</div>
+</form>
+{% endblock comment_form %}

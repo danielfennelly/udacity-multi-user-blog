@@ -18,6 +18,7 @@ jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
 
 BAD_REQUEST = 400
+UNAUTHORIZED = 401
 FORBIDDEN = 403
 NOT_FOUND = 404
 
@@ -161,7 +162,7 @@ class PermalinkPage(PageHandler):
             user = self.get_user()
             comments = self.get_comments(blog_post.id())
             liked = self.get_liked(blog_post.id(), user)
-            self.render('permalink.html',
+            self.render('permalink_with_comment.html',
                         blog_post=blog_post,
                         user=user,
                         comments=comments,
@@ -185,7 +186,7 @@ class EditPage(PageHandler):
         blog_post = BlogPost.get_by_id(int(post_id))
 
         if not user:
-            return self.redirect('/signup')
+            return self.redirect('/login')
         if not blog_post:
             response.set_status(NOT_FOUND)
         if blog_post.author_id != user.id():
@@ -285,24 +286,54 @@ class CommentEditPage(PageHandler):
     """Handler for comment editing page"""
 
     def get(self, post_id, comment_id):
-        blog_post = BlogPost.get_by_id(int(post_id))
-        comment = Comment.get_by_id(int(comment_id))
         user = self.get_user()
+        blog_post = BlogPost.get_by_id(int(post_id))
+        if not user:
+            return self.redirect('/login')
+        if not blog_post:
+            response.set_status(NOT_FOUND)
+            return response
+        if blog_post.author_id != user.id():
+            response.set_status(FORBIDDEN)
+            return response
 
-        if comment and user and blog_post:
-            entities_exist = True
-        else:
-            entities_exist = False
+        liked = self.get_liked(blog_post.id(), user)
+
+        comments = self.get_comments(blog_post.id())
+        comment_id = int(comment_id)
+        comment_ids = map(lambda comment: comment.id(), comments)
+
+        if comment_id not in comment_ids:
+            response.set_status(NOT_FOUND)
+            return response
+
+        self.render('permalink.html',
+                    blog_post=blog_post,
+                    user=user,
+                    comments=comments,
+                    liked=liked,
+                    edit_comment=comment_id)
 
     def post(self, post_id, comment_id):
-        blog_post = BlogPost.get_by_id(int(post_id))
         comment = Comment.get_by_id(int(comment_id))
         user = self.get_user()
+        if not user:
+            response.set_status(UNAUTHORIZED)
+            return response
+        if not comment:
+            response.set_status(NOT_FOUND)
+            return response
+        if comment.user_id != user.id():
+            response.set_status(FORBIDDEN)
+            return response
 
-        if comment and user and blog_post:
-            entities_exist = True
-        else:
-            entities_exist = False
+        text = self.request.get('comment-edit')
+        if not text:
+            text = ''
+
+        comment.text = text
+        comment.put()
+        return self.redirect('/posts/%d' % int(comment.post_id))
 
 
 class LikeHandler(Handler):
